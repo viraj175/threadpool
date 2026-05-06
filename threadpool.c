@@ -16,16 +16,8 @@ pool_create(size_t n)
 
     pthread_mutex_init(&pool->lock, NULL);
     pthread_cond_init(&pool->not_empty, NULL);
-    pool->threads = malloc(n * sizeof(pthread_t));
-    pool->queue = malloc(CAPACITY * sizeof(task_t));
-    pool->head = pool->tail = 0;
-    pool->count = 0;
-    pool->thread_count = n;
-    pool->capacity = CAPACITY;
-    pool->shutdown = 0;
-    pthread_mutex_init(&pool->lock, NULL);
-    pthread_cond_init(&pool->not_empty, NULL);
     pthread_cond_init(&pool->not_full, NULL);
+
     for (size_t i = 0; i < n; ++i)
     {
         if(pthread_create(&pool->threads[i], NULL, worker, pool) != 0)
@@ -34,6 +26,19 @@ pool_create(size_t n)
             return NULL;
         }
     }
+
+    pool->threads = malloc(n * sizeof(pthread_t));
+    pool->queue = malloc(CAPACITY * sizeof(task_t));
+    if (!pool->threads || !pool->queue)
+    {
+        perror("Malloc failed");
+        return NULL;
+    }
+    pool->front = pool->rear = 0;
+    pool->count = 0;
+    pool->thread_count = n;
+    pool->capacity = CAPACITY;
+    pool->shutdown = 0;
 
     return pool;
 }
@@ -44,12 +49,25 @@ worker(void *arg)
     threadpool_t *pool = (threadpool_t *)arg;
     while (1)
     {
-        while(pool->count == 0)
+        pthread_mutex_lock(&pool->lock);
+        while(pool->count == 0 && !pool->shutdown)
             pthread_cond_wait(&pool->not_empty, &pool->lock);
+        if (pool->count == 0 && pool->shutdown)
+        {
+            pthread_mutex_unlock(&pool->lock);
+            return NULL;
+        }
 
-        
+        task_t task = pool->queue[pool->front];
+        pool->front = (pool->front + 1) % pool->capacity;
+        pool->count--;
+        pthread_cond_signal(&pool->not_full);
+        pthread_mutex_unlock(&pool->lock);
+
+        task.fn(task.arg);
     }
        
+    return NULL;
 }
 
 void*
@@ -58,8 +76,9 @@ pool_submit(threadpool_t *pool, void (*fn)(void *), void *arg)
     pthread_mutex_lock(&pool->lock);
     while (pool->count >= pool->thread_count)
         pthread_cond_wait(&pool->not_full, &pool->lock);
-    pool->queue[pool->count].fn = fn;
-    pool->queue[pool->count++].arg = arg;
+    pool->rear = (pool->count + pool->front) % pool->capacity;
+    pool->queue[pool->rear].fn = fn;
+    pool->queue[pool->rear].arg = arg;
     pthread_cond_signal(&pool->not_empty);
     pthread_mutex_unlock(&pool->lock);
     return NULL;

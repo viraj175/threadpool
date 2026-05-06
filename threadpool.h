@@ -15,8 +15,8 @@ typedef struct {
 typedef struct {
     pthread_t           *threads;
     task_t              *queue;
-    int                 head;
-    int                 tail;
+    int                 front;
+    int                 rear;
     size_t              count;
     size_t              capacity;
     pthread_mutex_t     lock;
