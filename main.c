@@ -1,6 +1,6 @@
 #include <sched.h>
-#include <stdio.h>
-#include <time.h>
+// #include <stdio.h>
+// #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
 
@@ -10,18 +10,11 @@ int
 main()
 {
     threadpool_t *pool = pool_create(5);
-    if (!pool)
-    {
-        pthread_mutex_destroy(&pool->lock);
-        pthread_cond_destroy(&pool->not_empty);
-        pthread_cond_destroy(&pool->not_full);
-        return -1;
-    }
 
-    for (int i = 0; i < pool->count; ++i)
-        pthread_join(pool->threads[i], NULL);
+    for (int i = 0; i < 8; i++)
+        pool_submit(pool, task, NULL);
 
-    pool_destroy(pool);   
+    pool_destroy(&pool);   
 
     return 0;
 }

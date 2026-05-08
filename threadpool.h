@@ -22,7 +22,7 @@ typedef struct {
     pthread_mutex_t     lock;
     pthread_cond_t      not_empty;
     pthread_cond_t      not_full;
-    int                 thread_count;
+    size_t                 thread_count;
     int                 shutdown;
 } threadpool_t;
 
@@ -30,6 +30,6 @@ threadpool_t *pool_create(size_t n);
 void *worker(void *arg);
 void task(void *arg);
 void *pool_submit(threadpool_t *pool, void (*fn)(void *), void *arg);
-void pool_destroy(threadpool_t *pool);
+void pool_destroy(threadpool_t **pool);
 
 #endif // !THREADPOOL_H
